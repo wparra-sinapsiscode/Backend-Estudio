@@ -94,11 +94,11 @@ const createInvoice = async (req, res) => {
     }
 
     // Validar tipo de documento
-    const validDocumentTypes = ['factura', 'rhe'];
+    const validDocumentTypes = ['factura', 'boleta', 'rhe'];
     if (documentType && !validDocumentTypes.includes(documentType)) {
       return res.status(400).json({
         success: false,
-        message: 'El tipo de documento debe ser "factura" o "rhe"'
+        message: 'El tipo de documento debe ser "factura", "boleta" o "rhe"'
       });
     }
 
@@ -447,11 +447,11 @@ const updateInvoice = async (req, res) => {
 
     // Validar tipo de documento si se proporciona
     if (documentType) {
-      const validDocumentTypes = ['factura', 'rhe'];
+      const validDocumentTypes = ['factura', 'boleta', 'rhe'];
       if (!validDocumentTypes.includes(documentType)) {
         return res.status(400).json({
           success: false,
-          message: 'El tipo de documento debe ser "factura" o "rhe"'
+          message: 'El tipo de documento debe ser "factura", "boleta" o "rhe"'
         });
       }
     }
