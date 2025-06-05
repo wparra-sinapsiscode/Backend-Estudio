@@ -47,7 +47,14 @@ app.use('/api/settings/alerts', protect, require('./routes/alertSetting.routes')
 app.use('/api/alerts', protect, require('./routes/alert.routes'));
 app.use('/api/stats', protect, require('./routes/stats.routes'));
 app.use('/api/calendar', protect, require('./routes/calendar.routes'));
-app.use('/api/collection-tracking', protect, require('./routes/collection-tracking.routes'));
+// Log específico para collection-tracking
+app.use('/api/collection-tracking', (req, res, next) => {
+  console.log(`🔍 SERVER - Petición ${req.method} a collection-tracking:`, req.url);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('🔍 SERVER - Body:', JSON.stringify(req.body));
+  }
+  next();
+}, protect, require('./routes/collection-tracking.routes'));
 
 // Función para inicializar la base de datos
 const initializeDatabase = async (force = false) => {

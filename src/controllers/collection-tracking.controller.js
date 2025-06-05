@@ -42,6 +42,11 @@ exports.getTrackingHistory = async (req, res) => {
 // Crear nuevo registro de seguimiento
 exports.createTracking = async (req, res) => {
   try {
+    console.log('🔍 BACKEND - Petición recibida en createTracking');
+    console.log('🔍 BACKEND - Headers:', req.headers);
+    console.log('🔍 BACKEND - Body completo:', req.body);
+    console.log('🔍 BACKEND - Usuario autenticado:', req.user);
+
     const {
       entityType,
       entityId,
@@ -57,22 +62,42 @@ exports.createTracking = async (req, res) => {
       promiseAmount
     } = req.body;
 
+    console.log('🔍 BACKEND - Datos extraídos:', {
+      entityType,
+      entityId,
+      clientId,
+      actionType,
+      actionDescription,
+      contactMade,
+      clientResponse,
+      nextActionDate,
+      nextActionNotes,
+      status,
+      promiseDate,
+      promiseAmount
+    });
+
     // Validar que la entidad existe
+    console.log(`🔍 BACKEND - Verificando existencia de ${entityType} con ID ${entityId}`);
     let entity;
     if (entityType === 'invoice') {
       entity = await Invoice.findByPk(entityId);
+      console.log('🔍 BACKEND - Factura encontrada:', !!entity);
     } else if (entityType === 'contracted_service') {
       entity = await ContractedService.findByPk(entityId);
+      console.log('🔍 BACKEND - Servicio contratado encontrado:', !!entity);
     }
 
     if (!entity) {
+      console.log('❌ BACKEND - Entidad no encontrada');
       return res.status(404).json({
         success: false,
         message: 'Entidad no encontrada'
       });
     }
 
-    const tracking = await CollectionTracking.create({
+    console.log('🔍 BACKEND - Preparando datos para crear tracking...');
+    const trackingData = {
       entityType,
       entityId,
       clientId,
@@ -87,9 +112,15 @@ exports.createTracking = async (req, res) => {
       status,
       promiseDate,
       promiseAmount
-    });
+    };
+    
+    console.log('🔍 BACKEND - Datos finales para insertar:', trackingData);
+    
+    const tracking = await CollectionTracking.create(trackingData);
+    console.log('✅ BACKEND - Tracking creado exitosamente:', tracking.id);
 
     // Cargar datos relacionados
+    console.log('🔍 BACKEND - Cargando datos relacionados...');
     const trackingWithRelations = await CollectionTracking.findByPk(tracking.id, {
       include: [
         {
@@ -105,15 +136,20 @@ exports.createTracking = async (req, res) => {
       ]
     });
 
+    console.log('✅ BACKEND - Enviando respuesta exitosa');
     res.status(201).json({
       success: true,
       data: trackingWithRelations
     });
   } catch (error) {
-    console.error('Error creando seguimiento:', error);
+    console.error('❌ BACKEND - Error completo:', error);
+    console.error('❌ BACKEND - Error message:', error.message);
+    console.error('❌ BACKEND - Error stack:', error.stack);
+    
     res.status(500).json({
       success: false,
-      message: 'Error al crear registro de seguimiento'
+      message: 'Error al crear registro de seguimiento',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
