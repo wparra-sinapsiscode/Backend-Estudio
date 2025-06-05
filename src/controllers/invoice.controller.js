@@ -466,6 +466,27 @@ const updateInvoice = async (req, res) => {
       }
     }
 
+    // Procesar archivo subido si existe (para actualización)
+    let documentData = document !== undefined ? document : invoice.document;
+    if (req.files && req.files.length > 0) {
+      // Tomar el primer archivo subido
+      const uploadedFile = req.files[0];
+      documentData = {
+        name: uploadedFile.originalname,
+        path: uploadedFile.path.replace(require('path').join(__dirname, '../..'), '').replace(/\\/g, '/'),
+        size: uploadedFile.size,
+        mimetype: uploadedFile.mimetype
+      };
+    } else if (req.body.documentUrls && req.body.documentUrls.length > 0) {
+      // Si se procesó mediante el middleware
+      documentData = {
+        name: 'documento-actualizado',
+        path: req.body.documentUrls[0],
+        size: 0,
+        mimetype: 'application/octet-stream'
+      };
+    }
+
     // Detectar si hay cambio de estado de 'pendiente' a 'pagada'
     const isStatusChangeToPayment = invoice.status === 'pendiente' && status === 'pagada';
     
@@ -482,7 +503,7 @@ const updateInvoice = async (req, res) => {
       dueDate: dueDate || invoice.dueDate,
       amount: amount !== undefined ? amount : invoice.amount,
       status: status || invoice.status,
-      document: document !== undefined ? document : invoice.document,
+      document: documentData,
       documentType: documentType || invoice.documentType
     };
     
