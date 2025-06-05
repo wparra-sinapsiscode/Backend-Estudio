@@ -32,9 +32,9 @@ const CollectionTracking = sequelize.define('CollectionTracking', {
     comment: 'Fecha y hora de la acción'
   },
   actionType: {
-    type: DataTypes.ENUM('llamada', 'email', 'visita', 'whatsapp', 'carta', 'otro'),
+    type: DataTypes.TEXT,
     allowNull: false,
-    comment: 'Tipo de acción realizada'
+    comment: 'Tipos de acción realizadas (separadas por coma si son múltiples)'
   },
   actionDescription: {
     type: DataTypes.TEXT,
