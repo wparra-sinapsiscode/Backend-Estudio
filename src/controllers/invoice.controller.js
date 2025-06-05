@@ -1,6 +1,7 @@
 const { Invoice, Client, Service } = require('../models');
 const { Op } = require('sequelize');
 const { createSystemNotification } = require('./notification.controller');
+const { deleteFileIfExists, cleanupInvoiceFiles } = require('../utils/fileCleanup');
 
 // Controlador para Gestión de Pagos
 
@@ -468,23 +469,36 @@ const updateInvoice = async (req, res) => {
 
     // Procesar archivo subido si existe (para actualización)
     let documentData = document !== undefined ? document : invoice.document;
-    if (req.files && req.files.length > 0) {
-      // Tomar el primer archivo subido
-      const uploadedFile = req.files[0];
-      documentData = {
-        name: uploadedFile.originalname,
-        path: uploadedFile.path.replace(require('path').join(__dirname, '../..'), '').replace(/\\/g, '/'),
-        size: uploadedFile.size,
-        mimetype: uploadedFile.mimetype
-      };
-    } else if (req.body.documentUrls && req.body.documentUrls.length > 0) {
-      // Si se procesó mediante el middleware
-      documentData = {
-        name: 'documento-actualizado',
-        path: req.body.documentUrls[0],
-        size: 0,
-        mimetype: 'application/octet-stream'
-      };
+    
+    // Si hay un archivo nuevo, eliminar el anterior
+    if ((req.files && req.files.length > 0) || (req.body.documentUrls && req.body.documentUrls.length > 0)) {
+      // Eliminar archivo anterior si existe
+      if (invoice.document && invoice.document.path) {
+        console.log(`🗑️ Eliminando archivo anterior del pago ${id}: ${invoice.document.path}`);
+        deleteFileIfExists(invoice.document.path);
+      }
+      
+      // Procesar archivo nuevo
+      if (req.files && req.files.length > 0) {
+        // Archivo subido directamente
+        const uploadedFile = req.files[0];
+        documentData = {
+          name: uploadedFile.originalname,
+          path: uploadedFile.path.replace(require('path').join(__dirname, '../..'), '').replace(/\\/g, '/'),
+          size: uploadedFile.size,
+          mimetype: uploadedFile.mimetype
+        };
+        console.log(`💾 Nuevo archivo guardado: ${documentData.path}`);
+      } else if (req.body.documentUrls && req.body.documentUrls.length > 0) {
+        // Archivo procesado por middleware
+        documentData = {
+          name: 'documento-actualizado',
+          path: req.body.documentUrls[0],
+          size: 0,
+          mimetype: 'application/octet-stream'
+        };
+        console.log(`💾 Nuevo archivo procesado: ${documentData.path}`);
+      }
     }
 
     // Detectar si hay cambio de estado de 'pendiente' a 'pagada'
@@ -590,6 +604,12 @@ const deleteInvoice = async (req, res) => {
         success: false,
         message: 'No se puede eliminar una pago que ya tiene pagos registrados'
       });
+    }
+
+    // Limpiar archivos asociados antes de eliminar
+    if (invoice.document && invoice.document.path) {
+      console.log(`🗑️ Eliminando archivo del pago ${id}: ${invoice.document.path}`);
+      cleanupInvoiceFiles(invoice);
     }
 
     // Eliminar pago (borrado lógico si paranoid: true)

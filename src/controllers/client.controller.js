@@ -1,6 +1,7 @@
-const { Client } = require('../models');
+const { Client, Invoice } = require('../models');
 const { Op } = require('sequelize');
 const { createSystemNotification } = require('./notification.controller');
+const { deleteClientFiles, cleanupInvoiceFiles } = require('../utils/fileCleanup');
 
 // Controlador para Clientes
 
@@ -272,6 +273,37 @@ const deleteClient = async (req, res) => {
         message: `No se encontró el cliente con ID ${id}`
       });
     }
+
+    // Buscar todos los pagos del cliente para limpiar sus archivos
+    console.log(`🔍 Buscando pagos del cliente ${id} para limpieza de archivos...`);
+    const clientInvoices = await Invoice.findAll({
+      where: { clientId: id },
+      paranoid: false // Incluir eliminados también
+    });
+
+    // Limpiar archivos de todos los pagos del cliente
+    if (clientInvoices.length > 0) {
+      console.log(`🗑️ Limpiando archivos de ${clientInvoices.length} pagos del cliente ${id}`);
+      
+      for (const invoice of clientInvoices) {
+        if (invoice.document && invoice.document.path) {
+          console.log(`🗑️ Limpiando archivo del pago ${invoice.id}: ${invoice.document.path}`);
+          cleanupInvoiceFiles(invoice);
+        }
+      }
+      
+      // Eliminar pagos del cliente
+      await Invoice.destroy({
+        where: { clientId: id },
+        force: true // Eliminación física para limpiar completamente
+      });
+      
+      console.log(`🗑️ ${clientInvoices.length} pagos del cliente ${id} eliminados`);
+    }
+
+    // Eliminar carpetas completas del cliente
+    console.log(`🗑️ Eliminando carpetas del cliente ${id}...`);
+    deleteClientFiles(id);
 
     // Eliminar cliente (borrado lógico si paranoid: true)
     await client.destroy();
