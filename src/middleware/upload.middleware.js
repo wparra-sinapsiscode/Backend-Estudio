@@ -43,14 +43,14 @@ const storage = multer.diskStorage({
     } else if (file.fieldname === 'invoiceDocument' || file.fieldname === 'invoiceAttachment') {
       folder = path.join(uploadsDir, 'invoices');
       
-      // Create invoice-specific folder if we have invoiceId
-      const invoiceId = req.params.invoiceId || req.params.id;
-      if (invoiceId) {
-        const invoiceDir = path.join(folder, invoiceId);
-        if (!fs.existsSync(invoiceDir)) {
-          fs.mkdirSync(invoiceDir, { recursive: true });
+      // Create client-specific folder for invoice documents
+      const clientId = req.body.clientId || req.params.clientId;
+      if (clientId) {
+        const clientDir = path.join(folder, `cliente-${clientId}`);
+        if (!fs.existsSync(clientDir)) {
+          fs.mkdirSync(clientDir, { recursive: true });
         }
-        folder = invoiceDir;
+        folder = clientDir;
       }
     } else if (file.fieldname === 'serviceDocument' || file.fieldname === 'servicePhoto') {
       folder = path.join(uploadsDir, 'services');

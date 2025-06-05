@@ -1,45 +1,46 @@
 const express = require('express');
 const router = express.Router();
 const invoiceController = require('../controllers/invoice.controller');
+const { uploadInvoiceDocuments } = require('../middleware/upload.middleware');
 
 /**
  * @route   POST /api/invoices
- * @desc    Crear una nueva factura/proforma
+ * @desc    Crear un nuevo pago
  * @access  Private
  */
-router.post('/', invoiceController.createInvoice);
+router.post('/', uploadInvoiceDocuments, invoiceController.createInvoice);
 
 /**
  * @route   GET /api/invoices
- * @desc    Obtener todas las facturas/proformas con filtros opcionales
+ * @desc    Obtener todos los pagos con filtros opcionales
  * @access  Private
  */
 router.get('/', invoiceController.getAllInvoices);
 
 /**
  * @route   GET /api/invoices/:id
- * @desc    Obtener una factura/proforma por su ID
+ * @desc    Obtener un pago por su ID
  * @access  Private
  */
 router.get('/:id', invoiceController.getInvoiceById);
 
 /**
  * @route   PUT /api/invoices/:id
- * @desc    Actualizar una factura/proforma
+ * @desc    Actualizar un pago
  * @access  Private
  */
-router.put('/:id', invoiceController.updateInvoice);
+router.put('/:id', uploadInvoiceDocuments, invoiceController.updateInvoice);
 
 /**
  * @route   DELETE /api/invoices/:id
- * @desc    Eliminar una factura/proforma
+ * @desc    Eliminar un pago
  * @access  Private
  */
 router.delete('/:id', invoiceController.deleteInvoice);
 
 /**
  * @route   POST /api/invoices/:id/payments
- * @desc    Agregar un pago a una factura/proforma
+ * @desc    Agregar un pago parcial a un documento
  * @access  Private
  */
 router.post('/:id/payments', invoiceController.addPaymentToInvoice);

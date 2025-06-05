@@ -2,10 +2,10 @@ const { Invoice, Client, Service } = require('../models');
 const { Op } = require('sequelize');
 const { createSystemNotification } = require('./notification.controller');
 
-// Controlador para Facturas/Proformas
+// Controlador para Gestión de Pagos
 
 /**
- * Crear una nueva factura/proforma
+ * Crear un nuevo pago
  * @route POST /api/invoices
  */
 const createInvoice = async (req, res) => {
@@ -56,7 +56,7 @@ const createInvoice = async (req, res) => {
     if (existingInvoice) {
       return res.status(400).json({
         success: false,
-        message: `Ya existe una factura/proforma con el número ${number}`
+        message: `Ya existe una pago con el número ${number}`
       });
     }
 
@@ -110,7 +110,28 @@ const createInvoice = async (req, res) => {
       });
     }
 
-    // Crear nueva factura/proforma
+    // Procesar archivo subido si existe
+    let documentData = document;
+    if (req.files && req.files.length > 0) {
+      // Tomar el primer archivo subido
+      const uploadedFile = req.files[0];
+      documentData = {
+        name: uploadedFile.originalname,
+        path: uploadedFile.path.replace(require('path').join(__dirname, '../..'), '').replace(/\\/g, '/'),
+        size: uploadedFile.size,
+        mimetype: uploadedFile.mimetype
+      };
+    } else if (req.body.documentUrls && req.body.documentUrls.length > 0) {
+      // Si se procesó mediante el middleware
+      documentData = {
+        name: 'documento-subido',
+        path: req.body.documentUrls[0],
+        size: 0,
+        mimetype: 'application/octet-stream'
+      };
+    }
+
+    // Crear nueva pago
     const newInvoice = await Invoice.create({
       number,
       clientId,
@@ -119,7 +140,7 @@ const createInvoice = async (req, res) => {
       dueDate,
       amount,
       status: status || 'pendiente',
-      document: document || null,
+      document: documentData,
       documentType: documentType || 'factura',
       paidAmount: paidAmount || 0,
       payments: payments || []
@@ -138,31 +159,31 @@ const createInvoice = async (req, res) => {
     
     // Crear notificación del sistema
     await createSystemNotification({
-      title: 'Nueva Factura/Proforma Creada',
-      message: `Se creó la factura ${number} para el cliente ${invoiceWithRelations.client.name}`,
+      title: 'Nuevo Pago Registrado',
+      message: `Se registró el pago ${number} para el cliente ${invoiceWithRelations.client.name}`,
       type: 'info',
       relatedSection: 'invoices',
       relatedId: newInvoice.id
     });
 
-    // Responder con la factura/proforma creada
+    // Responder con la pago creada
     return res.status(201).json({
       success: true,
       data: invoiceWithRelations,
-      message: 'Factura/Proforma creada correctamente'
+      message: 'Pago creada correctamente'
     });
   } catch (error) {
-    console.error('Error al crear factura/proforma:', error);
+    console.error('Error al crear pago:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al crear la factura/proforma',
+      message: 'Error al crear la pago',
       error: error.message
     });
   }
 };
 
 /**
- * Obtener todas las facturas/proformas
+ * Obtener todas las pagos
  * @route GET /api/invoices
  */
 const getAllInvoices = async (req, res) => {
@@ -174,7 +195,8 @@ const getAllInvoices = async (req, res) => {
       status, 
       startDate, 
       endDate,
-      dateType = 'issueDate' // 'issueDate' o 'dueDate'
+      dateType = 'issueDate', // 'issueDate' o 'dueDate'
+      includeDeleted = false
     } = req.query;
     
     let whereClause = {};
@@ -215,14 +237,15 @@ const getAllInvoices = async (req, res) => {
       }
     }
 
-    // Obtener facturas/proformas con opciones de filtrado e incluyendo relaciones
+    // Obtener pagos con opciones de filtrado e incluyendo relaciones
     const invoices = await Invoice.findAll({
       where: whereClause,
       include: [
         { model: Client, as: 'client' },
         { model: Service, as: 'service' }
       ],
-      order: [['dueDate', 'ASC']] // Ordenar por fecha de vencimiento
+      order: [['dueDate', 'ASC']], // Ordenar por fecha de vencimiento
+      paranoid: includeDeleted === 'true' ? false : true // Incluir eliminados si se solicita
     });
 
     return res.status(200).json({
@@ -231,17 +254,17 @@ const getAllInvoices = async (req, res) => {
       data: invoices
     });
   } catch (error) {
-    console.error('Error al obtener facturas/proformas:', error);
+    console.error('Error al obtener pagos:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la lista de facturas/proformas',
+      message: 'Error al obtener la lista de pagos',
       error: error.message
     });
   }
 };
 
 /**
- * Obtener una factura/proforma por su ID
+ * Obtener una pago por su ID
  * @route GET /api/invoices/:id
  */
 const getInvoiceById = async (req, res) => {
@@ -252,11 +275,11 @@ const getInvoiceById = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de factura/proforma inválido'
+        message: 'ID de pago inválido'
       });
     }
 
-    // Buscar factura/proforma por ID incluyendo relaciones
+    // Buscar pago por ID incluyendo relaciones
     const invoice = await Invoice.findByPk(id, {
       include: [
         { 
@@ -273,7 +296,7 @@ const getInvoiceById = async (req, res) => {
     });
     
     // 🔍 DEBUG: Log para verificar qué se está devolviendo
-    console.log('🔍 getInvoiceById - Invoice encontrada:', {
+    console.log('🔍 getInvoiceById - Pago encontrado:', {
       id: invoice?.id,
       clientId: invoice?.clientId,
       serviceId: invoice?.serviceId,
@@ -282,11 +305,11 @@ const getInvoiceById = async (req, res) => {
       clientData: invoice?.client ? { id: invoice.client.id, name: invoice.client.name } : null
     });
 
-    // Verificar si la factura/proforma existe
+    // Verificar si la pago existe
     if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: `No se encontró la factura/proforma con ID ${id}`
+        message: `No se encontró la pago con ID ${id}`
       });
     }
 
@@ -295,17 +318,17 @@ const getInvoiceById = async (req, res) => {
       data: invoice
     });
   } catch (error) {
-    console.error(`Error al obtener factura/proforma con ID ${req.params.id}:`, error);
+    console.error(`Error al obtener pago con ID ${req.params.id}:`, error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la factura/proforma',
+      message: 'Error al obtener la pago',
       error: error.message
     });
   }
 };
 
 /**
- * Actualizar una factura/proforma existente
+ * Actualizar una pago existente
  * @route PUT /api/invoices/:id
  */
 const updateInvoice = async (req, res) => {
@@ -327,11 +350,11 @@ const updateInvoice = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de factura/proforma inválido'
+        message: 'ID de pago inválido'
       });
     }
 
-    // Buscar factura/proforma por ID
+    // Buscar pago por ID
     const invoice = await Invoice.findByPk(id, {
       include: [
         { model: Client, as: 'client' },
@@ -339,11 +362,11 @@ const updateInvoice = async (req, res) => {
       ]
     });
 
-    // Verificar si la factura/proforma existe
+    // Verificar si la pago existe
     if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: `No se encontró la factura/proforma con ID ${id}`
+        message: `No se encontró la pago con ID ${id}`
       });
     }
 
@@ -353,7 +376,7 @@ const updateInvoice = async (req, res) => {
       if (existingInvoice) {
         return res.status(400).json({
           success: false,
-          message: `Ya existe una factura/proforma con el número ${number}`
+          message: `Ya existe una pago con el número ${number}`
         });
       }
     }
@@ -470,7 +493,7 @@ const updateInvoice = async (req, res) => {
       updateFields.overdueAlertSent = false;
     }
     
-    // Actualizar factura/proforma
+    // Actualizar pago
     await invoice.update(updateFields);
 
     // Crear notificación si la factura cambia de pendiente a pagada
@@ -482,7 +505,7 @@ const updateInvoice = async (req, res) => {
       }).format(invoice.amount);
 
       await createSystemNotification({
-        title: 'Factura Pagada',
+        title: 'Pago Completado',
         message: `La factura ${invoice.number} del cliente ${invoice.client.name} ha sido marcada como pagada por un monto de ${formattedAmount}`,
         type: 'success',
         relatedSection: 'invoices',
@@ -490,7 +513,7 @@ const updateInvoice = async (req, res) => {
       });
     }
 
-    // Cargar la factura/proforma actualizada con sus relaciones
+    // Cargar la pago actualizada con sus relaciones
     const updatedInvoice = await Invoice.findByPk(id, {
       include: [
         { model: Client, as: 'client' },
@@ -501,20 +524,20 @@ const updateInvoice = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: updatedInvoice,
-      message: 'Factura/Proforma actualizada correctamente'
+      message: 'Pago actualizada correctamente'
     });
   } catch (error) {
-    console.error(`Error al actualizar factura/proforma con ID ${req.params.id}:`, error);
+    console.error(`Error al actualizar pago con ID ${req.params.id}:`, error);
     return res.status(500).json({
       success: false,
-      message: 'Error al actualizar la factura/proforma',
+      message: 'Error al actualizar la pago',
       error: error.message
     });
   }
 };
 
 /**
- * Eliminar una factura/proforma
+ * Eliminar una pago
  * @route DELETE /api/invoices/:id
  */
 const deleteInvoice = async (req, res) => {
@@ -525,18 +548,18 @@ const deleteInvoice = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de factura/proforma inválido'
+        message: 'ID de pago inválido'
       });
     }
 
-    // Buscar factura/proforma por ID
+    // Buscar pago por ID
     const invoice = await Invoice.findByPk(id);
 
-    // Verificar si la factura/proforma existe
+    // Verificar si la pago existe
     if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: `No se encontró la factura/proforma con ID ${id}`
+        message: `No se encontró la pago con ID ${id}`
       });
     }
 
@@ -544,29 +567,29 @@ const deleteInvoice = async (req, res) => {
     if (invoice.paidAmount > 0) {
       return res.status(400).json({
         success: false,
-        message: 'No se puede eliminar una factura/proforma que ya tiene pagos registrados'
+        message: 'No se puede eliminar una pago que ya tiene pagos registrados'
       });
     }
 
-    // Eliminar factura/proforma (borrado lógico si paranoid: true)
+    // Eliminar pago (borrado lógico si paranoid: true)
     await invoice.destroy();
 
     return res.status(200).json({
       success: true,
-      message: 'Factura/Proforma eliminada correctamente'
+      message: 'Pago eliminada correctamente'
     });
   } catch (error) {
-    console.error(`Error al eliminar factura/proforma con ID ${req.params.id}:`, error);
+    console.error(`Error al eliminar pago con ID ${req.params.id}:`, error);
     return res.status(500).json({
       success: false,
-      message: 'Error al eliminar la factura/proforma',
+      message: 'Error al eliminar la pago',
       error: error.message
     });
   }
 };
 
 /**
- * Agregar un pago a una factura/proforma
+ * Agregar un pago a una pago
  * @route POST /api/invoices/:id/payments
  */
 const addPaymentToInvoice = async (req, res) => {
@@ -578,7 +601,7 @@ const addPaymentToInvoice = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de factura/proforma inválido'
+        message: 'ID de pago inválido'
       });
     }
 
@@ -607,7 +630,7 @@ const addPaymentToInvoice = async (req, res) => {
       });
     }
 
-    // Buscar factura/proforma por ID
+    // Buscar pago por ID
     const invoice = await Invoice.findByPk(id, {
       include: [
         { model: Client, as: 'client' },
@@ -615,11 +638,11 @@ const addPaymentToInvoice = async (req, res) => {
       ]
     });
 
-    // Verificar si la factura/proforma existe
+    // Verificar si la pago existe
     if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: `No se encontró la factura/proforma con ID ${id}`
+        message: `No se encontró la pago con ID ${id}`
       });
     }
 
@@ -677,7 +700,7 @@ const addPaymentToInvoice = async (req, res) => {
       updateFields.overdueAlertSent = false;
     }
     
-    // Actualizar factura/proforma
+    // Actualizar pago
     await invoice.update(updateFields);
 
     // Crear notificación si la factura cambia a pagada con este pago
@@ -689,7 +712,7 @@ const addPaymentToInvoice = async (req, res) => {
       }).format(invoice.amount);
 
       await createSystemNotification({
-        title: 'Factura Pagada Completamente',
+        title: 'Pago Completado Totalmente',
         message: `La factura ${invoice.number} del cliente ${invoice.client.name} ha sido pagada completamente por un monto total de ${formattedAmount}`,
         type: 'success',
         relatedSection: 'invoices',
@@ -716,7 +739,7 @@ const addPaymentToInvoice = async (req, res) => {
       });
     }
 
-    // Cargar la factura/proforma actualizada
+    // Cargar la pago actualizada
     const updatedInvoice = await Invoice.findByPk(id, {
       include: [
         { model: Client, as: 'client' },
@@ -731,7 +754,7 @@ const addPaymentToInvoice = async (req, res) => {
       payment: newPayment
     });
   } catch (error) {
-    console.error(`Error al agregar pago a factura/proforma con ID ${req.params.id}:`, error);
+    console.error(`Error al agregar pago parcial a documento con ID ${req.params.id}:`, error);
     return res.status(500).json({
       success: false,
       message: 'Error al agregar el pago',
