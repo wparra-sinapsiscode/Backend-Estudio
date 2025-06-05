@@ -1,9 +1,15 @@
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 const { Invoice, ContractedService, Client, Service } = require('../models');
 
 /**
  * Obtener eventos de calendario
  * @route GET /api/calendar/events
+ * @description Retorna eventos de calendario para un mes específico, incluyendo:
+ * - Facturas pendientes (status !== 'pagada' Y pendingAmount > 0)
+ * - Servicios contratados activos (status = 'activo')
+ * @param {string} month - Mes (1-12)
+ * @param {string} year - Año (YYYY)
  */
 const getCalendarEvents = async (req, res) => {
   try {
@@ -27,14 +33,25 @@ const getCalendarEvents = async (req, res) => {
     let events = [];
     
     // Obtener facturas con fecha de vencimiento en el mes solicitado
+    // Excluir facturas pagadas (status !== 'pagada' Y pendingAmount > 0)
     const invoices = await Invoice.findAll({
       where: {
         dueDate: {
           [Op.between]: [startDateStr, endDateStr]
         },
-        status: {
-          [Op.in]: ['pendiente', 'vencida']
-        }
+        [Op.and]: [
+          {
+            status: {
+              [Op.ne]: 'pagada'
+            }
+          },
+          // Solo mostrar facturas con monto pendiente mayor a 0
+          sequelize.where(
+            sequelize.literal('(amount - COALESCE("paidAmount", 0))'),
+            Op.gt,
+            0
+          )
+        ]
       },
       include: [
         { 
@@ -56,6 +73,7 @@ const getCalendarEvents = async (req, res) => {
     invoices.forEach(invoice => {
       // Validar que client y service existan
       if (invoice.client && invoice.service) {
+        const pendingAmount = parseFloat(invoice.amount) - parseFloat(invoice.paidAmount);
         events.push({
           id: `invoice-${invoice.id}`,
           entityId: invoice.id,
@@ -64,7 +82,9 @@ const getCalendarEvents = async (req, res) => {
           type: 'invoice',
           status: invoice.status,
           clientName: invoice.client.name,
-          amount: parseFloat(invoice.amount)
+          amount: parseFloat(invoice.amount),
+          paidAmount: parseFloat(invoice.paidAmount),
+          pendingAmount: pendingAmount
         });
       } else {
         console.warn(`Invoice ${invoice.id} missing client or service association`);

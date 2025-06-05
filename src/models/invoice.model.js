@@ -59,7 +59,7 @@ const Invoice = sequelize.define('Invoice', {
     allowNull: true
   },
   documentType: {
-    type: DataTypes.ENUM('factura', 'rhe'),
+    type: DataTypes.ENUM('factura', 'boleta', 'rhe'),
     allowNull: false,
     defaultValue: 'factura'
   },
