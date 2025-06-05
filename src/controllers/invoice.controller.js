@@ -2,6 +2,8 @@ const { Invoice, Client, Service } = require('../models');
 const { Op } = require('sequelize');
 const { createSystemNotification } = require('./notification.controller');
 const { deleteFileIfExists, cleanupInvoiceFiles } = require('../utils/fileCleanup');
+const path = require('path');
+const fs = require('fs');
 
 // Controlador para Gestión de Pagos
 
@@ -804,11 +806,83 @@ const addPaymentToInvoice = async (req, res) => {
   }
 };
 
+/**
+ * Descargar archivo/foto del pago
+ * @route GET /api/invoices/:id/document
+ */
+const downloadInvoiceDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validar que el ID sea un número
+    if (isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de pago inválido'
+      });
+    }
+
+    // Buscar pago por ID
+    const invoice = await Invoice.findByPk(id);
+
+    // Verificar si el pago existe
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: `No se encontró el pago con ID ${id}`
+      });
+    }
+
+    // Verificar si el pago tiene documento
+    if (!invoice.document || !invoice.document.path) {
+      return res.status(404).json({
+        success: false,
+        message: 'Este pago no tiene archivo adjunto'
+      });
+    }
+
+    // Construir ruta absoluta del archivo
+    const filePath = path.join(__dirname, '../..', invoice.document.path);
+
+    // Verificar si el archivo existe físicamente
+    if (!fs.existsSync(filePath)) {
+      console.error(`Archivo no encontrado: ${filePath}`);
+      return res.status(404).json({
+        success: false,
+        message: 'El archivo no se encuentra en el servidor'
+      });
+    }
+
+    // Obtener información del archivo
+    const fileName = invoice.document.name || `pago-${invoice.number}-documento${path.extname(filePath)}`;
+    const contentType = invoice.document.mimetype || 'application/octet-stream';
+
+    console.log(`📥 Descargando archivo: ${fileName} (${contentType})`);
+
+    // Configurar headers para descarga
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', fs.statSync(filePath).size);
+
+    // Enviar archivo
+    res.sendFile(filePath);
+
+  } catch (error) {
+    console.error(`Error al descargar archivo del pago ${req.params.id}:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al descargar el archivo',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createInvoice,
   getAllInvoices,
   getInvoiceById,
   updateInvoice,
   deleteInvoice,
-  addPaymentToInvoice
+  addPaymentToInvoice,
+  downloadInvoiceDocument
 };

@@ -45,4 +45,11 @@ router.delete('/:id', invoiceController.deleteInvoice);
  */
 router.post('/:id/payments', invoiceController.addPaymentToInvoice);
 
+/**
+ * @route   GET /api/invoices/:id/document
+ * @desc    Descargar archivo/foto del pago
+ * @access  Private
+ */
+router.get('/:id/document', invoiceController.downloadInvoiceDocument);
+
 module.exports = router;
