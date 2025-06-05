@@ -10,6 +10,8 @@
     "db:reset": "node -e \"require('./src/config/database').syncModels(true)\"",
     "db:seed": "node src/seeders/seed.js",
     "db:seed:realistic": "node src/seeders/seed-realistic.js",
+    "seed:user": "node src/seeders/seed-user-only.js",
+    "seed:vencidos": "node src/seeders/seed-vencidos-test.js",
     "alerts:generate": "node src/scripts/generate-alerts.js",
     "test:auth": "node src/tests/auth-test.js"
   },

@@ -7,6 +7,7 @@ const Invoice = require('./invoice.model');
 const Notification = require('./notification.model');
 const CompanySetting = require('./company-setting.model');
 const AlertSetting = require('./alert-setting.model');
+const CollectionTracking = require('./collection-tracking.model');
 
 // Definir asociaciones entre modelos
 const setupAssociations = () => {
@@ -70,6 +71,61 @@ const setupAssociations = () => {
       entityType: 'contracted_service'
     }
   });
+
+  // Relaciones CollectionTracking
+  CollectionTracking.belongsTo(Client, {
+    foreignKey: 'clientId',
+    as: 'client'
+  });
+  
+  CollectionTracking.belongsTo(User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+  
+  // Relación polimórfica con Invoice
+  CollectionTracking.belongsTo(Invoice, {
+    foreignKey: 'entityId',
+    constraints: false,
+    as: 'invoice',
+    scope: {
+      entityType: 'invoice'
+    }
+  });
+  
+  // Relación polimórfica con ContractedService
+  CollectionTracking.belongsTo(ContractedService, {
+    foreignKey: 'entityId',
+    constraints: false,
+    as: 'contractedService',
+    scope: {
+      entityType: 'contracted_service'
+    }
+  });
+  
+  // Relaciones inversas
+  Client.hasMany(CollectionTracking, {
+    foreignKey: 'clientId',
+    as: 'collectionTrackings'
+  });
+  
+  Invoice.hasMany(CollectionTracking, {
+    foreignKey: 'entityId',
+    constraints: false,
+    as: 'trackings',
+    scope: {
+      entityType: 'invoice'
+    }
+  });
+  
+  ContractedService.hasMany(CollectionTracking, {
+    foreignKey: 'entityId',
+    constraints: false,
+    as: 'trackings',
+    scope: {
+      entityType: 'contracted_service'
+    }
+  });
 };
 
 module.exports = {
@@ -81,5 +137,6 @@ module.exports = {
   Notification,
   CompanySetting,
   AlertSetting,
+  CollectionTracking,
   setupAssociations
 };

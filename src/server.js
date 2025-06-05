@@ -47,6 +47,7 @@ app.use('/api/settings/alerts', protect, require('./routes/alertSetting.routes')
 app.use('/api/alerts', protect, require('./routes/alert.routes'));
 app.use('/api/stats', protect, require('./routes/stats.routes'));
 app.use('/api/calendar', protect, require('./routes/calendar.routes'));
+app.use('/api/collection-tracking', protect, require('./routes/collection-tracking.routes'));
 
 // Función para inicializar la base de datos
 const initializeDatabase = async (force = false) => {
